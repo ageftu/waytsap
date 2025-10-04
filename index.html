@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Думай — простой локальный мессенджер</title>
+  <style>
+    :root{--bg:#f3f4f6;--card:#ffffff;--muted:#6b7280;--accent:#6366f1}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial; background:linear-gradient(180deg,#eef2ff 0%, #f8fafc 100%);color:#0f172a}
+    .app{max-width:1100px;margin:28px auto;display:grid;grid-template-columns:320px 1fr;gap:18px;padding:18px}
+    .card{background:var(--card);border-radius:14px;box-shadow:0 6px 18px rgba(2,6,23,0.06);overflow:hidden}
+    .sidebar{padding:16px}
+    .brand{display:flex;align-items:center;gap:10px}
+    .logo{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#ec4899);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+    h1{font-size:18px;margin:0}
+    .small{font-size:12px;color:var(--muted)}
+    .me{margin-top:12px;display:flex;align-items:center;gap:10px}
+    input[type=text],input[type=search]{width:100%;padding:10px;border-radius:8px;border:1px solid #e6e9ef}
+    button{background:var(--accent);color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+    .user-list{margin-top:14px;display:block;gap:8px}
+    .user-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:pointer}
+    .user-item:hover{background:#f8fafc}
+    .avatar{width:40px;height:40px;border-radius:8px;background:#eef2ff;display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:600}
+    .search-row{display:flex;gap:8px;margin-top:12px}
+
+    /* Chat column */
+    .chat{display:flex;flex-direction:column;height:720px}
+    .chat-header{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #eef2ff}
+    .chat-body{flex:1;padding:18px;overflow:auto;background:linear-gradient(180deg,#fbfdff, #ffffff)}
+    .msg{max-width:70%;padding:10px;border-radius:12px;margin-bottom:12px;display:inline-block}
+    .out{background:linear-gradient(90deg,var(--accent),#8b5cf6);color:#fff;margin-left:auto}
+    .in{background:#fff;border:1px solid #eef2ff}
+    .meta{font-size:11px;color:var(--muted);margin-bottom:6px}
+    .compose{display:flex;gap:8px;padding:12px;border-top:1px solid #eef2ff}
+    .compose input{flex:1}
+    .tiny{font-size:12px;color:var(--muted);}
+    .center-note{text-align:center;padding:40px;color:var(--muted)}
+    .flex{display:flex;align-items:center}
+    .pill{padding:6px 8px;border-radius:999px;background:#f1f5f9;font-size:12px;margin-left:8px}
+    footer{padding:12px;text-align:center;font-size:12px;color:var(--muted)}
+
+    /* responsive */
+    @media (max-width:880px){.app{grid-template-columns:1fr;}.chat{height:calc(100vh - 200px)}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card sidebar">
+      <div class="brand">
+        <div class="logo">Д</div>
+        <div>
+          <h1>Думай</h1>
+          <div class="small">Локальный веб‑мессенджер — регистрация и ЛС</div>
+        </div>
+      </div>
+
+      <div class="me">
+        <div style="flex:1">
+          <div class="small">Текущий пользователь</div>
+          <div id="meBlock" style="display:flex;gap:8px;align-items:center;margin-top:6px">
+            <div class="avatar" id="meAvatar">?</div>
+            <div style="flex:1">
+              <div id="meName" style="font-weight:600">—</div>
+              <div class="tiny">ID: <span id="meId">—</span></div>
+            </div>
+            <button id="btnEdit">Изменить</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <div class="small">Поиск пользователей</div>
+        <div class="search-row">
+          <input type="search" id="search" placeholder="По имени или id..." />
+          <button id="btnNew">Регистрация</button>
+        </div>
+      </div>
+
+      <div class="user-list" id="users"></div>
+      <div style="margin-top:12px">
+        <div class="small">Поделиться</div>
+        <div style="margin-top:6px;display:flex;gap:8px">
+          <button id="btnCopy">Скопировать ссылку</button>
+          <button id="btnClear" style="background:#ef4444">Очистить</button>
+        </div>
+      </div>
+      <footer>Работает локально: сообщения сохраняются в браузере и видны в других вкладках.</footer>
+    </div>
+
+    <div class="card chat">
+      <div class="chat-header">
+        <div style="display:flex;gap:12px;align-items:center">
+          <div class="avatar" id="peerAvatar">—</div>
+          <div>
+            <div id="peerName" style="font-weight:700">Выберите пользователя</div>
+            <div class="tiny" id="peerId">—</div>
+          </div>
+          <div class="pill" id="typingIndicator" style="display:none">печатает...</div>
+        </div>
+        <div class="tiny">ЛС сохраняются локально</div>
+      </div>
+
+      <div class="chat-body" id="chatBody">
+        <div class="center-note">Выберите пользователя в левой панели, чтобы начать личный диалог.</div>
+      </div>
+
+      <div class="compose">
+        <input type="text" id="msgInput" placeholder="Напишите сообщение..." />
+        <button id="sendBtn">Отправить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модал регистрации / редактирования -->
+  <div id="modal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,0.4)">
+    <div style="background:#fff;padding:18px;border-radius:12px;min-width:320px;box-shadow:0 10px 40px rgba(2,6,23,0.3)">
+      <h3 id="modalTitle">Регистрация</h3>
+      <div style="margin-top:8px">
+        <label class="small">Имя</label>
+        <input type="text" id="regName" style="width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #eef2ff" />
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+        <button id="modalCancel" style="background:#e6e6e6;color:#111">Отмена</button>
+        <button id="modalOk">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Простая клиентская реализация: localStorage + BroadcastChannel
+    const BC = new BroadcastChannel('dumin_channel');
+
+    // --- данные и утилиты ---
+    function uid(){return Math.random().toString(36).slice(2,9)}
+    function now(){return new Date().toISOString()}
+    function getUsers(){try{return JSON.parse(localStorage.getItem('dm_users')||'[]')}catch(e){return []}}
+    function saveUsers(u){localStorage.setItem('dm_users', JSON.stringify(u)); BC.postMessage({type:'users_updated'})}
+    function getCurrent(){return localStorage.getItem('dm_current_user')}
+    function setCurrent(id){localStorage.setItem('dm_current_user', id); renderCurrent()}
+
+    // conversation key always with smaller id first so both participants share key
+    function convKey(a,b){const arr=[a,b].sort();return 'dm_conv:'+arr[0]+'_'+arr[1]}
+    function getConv(a,b){try{return JSON.parse(localStorage.getItem(convKey(a,b))||'[]')}catch(e){return []}}
+    function saveConv(a,b,msgs){localStorage.setItem(convKey(a,b),JSON.stringify(msgs)); BC.postMessage({type:'new_message',payload:{a,b}})}
+
+    // DOM
+    const usersEl = document.getElementById('users');
+    const search = document.getElementById('search');
+    const btnNew = document.getElementById('btnNew');
+    const btnCopy = document.getElementById('btnCopy');
+    const btnClear = document.getElementById('btnClear');
+    const meNameEl = document.getElementById('meName');
+    const meIdEl = document.getElementById('meId');
+    const meAvatar = document.getElementById('meAvatar');
+    const btnEdit = document.getElementById('btnEdit');
+
+    const peerName = document.getElementById('peerName');
+    const peerIdEl = document.getElementById('peerId');
+    const peerAvatar = document.getElementById('peerAvatar');
+    const chatBody = document.getElementById('chatBody');
+    const msgInput = document.getElementById('msgInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const typingIndicator = document.getElementById('typingIndicator');
+
+    const modal = document.getElementById('modal');
+    const modalTitle = document.getElementById('modalTitle');
+    const regName = document.getElementById('regName');
+    const modalOk = document.getElementById('modalOk');
+    const modalCancel = document.getElementById('modalCancel');
+
+    let activePeer = null; // user id of peer
+    let typingTimeout = null;
+
+    // --- init ---
+    function renderCurrent(){
+      const id = getCurrent();
+      if(!id){meNameEl.textContent='—';meIdEl.textContent='—';meAvatar.textContent='?';return}
+      const u = getUsers().find(x=>x.id===id);
+      if(!u){setCurrent(null);return}
+      meNameEl.textContent=u.name;
+      meIdEl.textContent=u.id;
+      meAvatar.textContent=(u.name||'?').slice(0,1).toUpperCase();
+    }
+
+    function renderUsers(){
+      const q = (search.value||'').toLowerCase().trim();
+      const users = getUsers().filter(u=>{
+        if(!q) return true;
+        return u.name.toLowerCase().includes(q)||u.id.includes(q);
+      });
+      const me = getCurrent();
+      usersEl.innerHTML='';
+      if(users.length===0){usersEl.innerHTML='<div class="small" style="padding:12px;color:var(--muted)">Пользователей нет</div>';return}
+      users.forEach(u=>{
+        const el = document.createElement('div');el.className='user-item';
+        el.innerHTML=`<div class="avatar">${(u.name||'?').slice(0,1).toUpperCase()}</div>
+                     <div style="flex:1">
+                       <div style="font-weight:600">${escapeHtml(u.name)}</div>
+                       <div class="tiny">id: ${u.id}${u.id===me? ' • Вы' : ''}</div>
+                     </div>`;
+        el.addEventListener('click',()=>{
+          if(!getCurrent()){alert('Сначала зарегистрируйтесь.'); openRegister(); return}
+          if(u.id===getCurrent()){alert('Нельзя открыть личный чат с самим собой.'); return}
+          openChat(u.id);
+        });
+        usersEl.appendChild(el);
+      });
+    }
+
+    function openRegister(edit=false){
+      modal.style.display='flex';
+      modalTitle.textContent=edit? 'Изменить имя':'Регистрация';
+      regName.value='';
+      if(edit){const cur=getCurrent(); if(cur){const u=getUsers().find(x=>x.id===cur); if(u) regName.value=u.name}}
+      regName.focus();
+      modalOk.onclick = ()=>{
+        const name = (regName.value||'').trim();
+        if(!name){alert('Введите имя'); return}
+        if(edit){
+          const cur=getCurrent(); const all=getUsers(); const idx=all.findIndex(x=>x.id===cur); if(idx>=0){all[idx].name=name; saveUsers(all); renderUsers(); renderCurrent(); modal.style.display='none'; return}
+        }
+        // create new user
+        const id = uid();
+        const users = getUsers();
+        users.push({id,name,created:now()});
+        saveUsers(users);
+        setCurrent(id);
+        modal.style.display='none';
+        renderUsers();
+      }
+    }
+
+    modalCancel.addEventListener('click',()=>modal.style.display='none');
+
+    btnNew.addEventListener('click',()=>openRegister(false));
+    btnEdit.addEventListener('click',()=>{
+      if(!getCurrent()){openRegister(false);return}
+      openRegister(true);
+    });
+
+    search.addEventListener('input',renderUsers);
+
+    btnCopy.addEventListener('click',()=>{navigator.clipboard?.writeText(location.href); alert('Ссылка скопирована');});
+    btnClear.addEventListener('click',()=>{
+      if(confirm('Очистить все локальные данные (пользователи и сообщения)?')){localStorage.clear(); renderUsers(); renderCurrent(); chatBody.innerHTML='<div class="center-note">Выберите пользователя в левой панели, чтобы начать личный диалог.</div>'; alert('Очищено')}
+    });
+
+    // open chat with user id
+    function openChat(peerId){
+      activePeer = peerId;
+      const users = getUsers();
+      const p = users.find(x=>x.id===peerId);
+      const cur = getCurrent();
+      peerName.textContent = p? p.name : 'Пользователь';
+      peerIdEl.textContent = 'id: '+peerId;
+      peerAvatar.textContent = p? p.name.slice(0,1).toUpperCase() : '?';
+      renderConv();
+    }
+
+    function renderConv(){
+      if(!activePeer){chatBody.innerHTML='<div class="center-note">Выберите пользователя в левой панели, чтобы начать личный диалог.</div>'; return}
+      const cur = getCurrent(); if(!cur){chatBody.innerHTML='<div class="center-note">Сначала зарегистрируйтесь.</div>'; return}
+      const msgs = getConv(cur, activePeer);
+      if(msgs.length===0){chatBody.innerHTML='<div class="center-note">Начните разговор — отправьте сообщение.</div>'; return}
+      chatBody.innerHTML='';
+      msgs.forEach(m=>{
+        const div = document.createElement('div');
+        div.className='msg '+(m.from===cur? 'out':'in');
+        div.innerHTML = `<div class="meta">${m.from===cur? 'Вы': escapeHtml(m.fromName)} • ${new Date(m.ts).toLocaleString()}</div>
+                         <div>${escapeHtml(m.text)}</div>`;
+        chatBody.appendChild(div);
+      });
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    sendBtn.addEventListener('click',sendMessage);
+    msgInput.addEventListener('keydown',(e)=>{if(e.key==='Enter'){e.preventDefault(); sendMessage() } else {sendTyping()}});
+
+    function sendMessage(){
+      const text = (msgInput.value||'').trim(); if(!text) return; const cur = getCurrent(); if(!cur){alert('Сначала зарегистрируйтесь'); return}
+      const users = getUsers(); const me = users.find(x=>x.id===cur); const peer = users.find(x=>x.id===activePeer);
+      const m = {id: uid()+'_'+Date.now(), from:cur, fromName:me?me.name:'', to:activePeer, text, ts:now()};
+      const msgs = getConv(cur, activePeer);
+      msgs.push(m); saveConv(cur, activePeer, msgs); msgInput.value=''; renderConv();
+    }
+
+    // typing indicator
+    function sendTyping(){
+      const cur = getCurrent(); if(!cur || !activePeer) return;
+      BC.postMessage({type:'typing',payload:{from:cur,to:activePeer,ts:now()}});
+    }
+
+    // BroadcastChannel handling
+    BC.onmessage = (ev)=>{
+      const {type,payload} = ev.data||{};
+      if(type==='users_updated'){renderUsers();renderCurrent()}
+      if(type==='new_message' && payload){
+        // если новая пара совпадает с активной — обновить
+        if(activePeer && ((payload.a===getCurrent() && payload.b===activePeer) || (payload.b===getCurrent() && payload.a===activePeer))){renderConv()}
+      }
+      if(type==='typing'){ // show if typing to me
+        const cur = getCurrent(); if(!cur) return;
+        if(payload.to===cur && payload.from===activePeer){typingIndicator.style.display='inline-block'; clearTimeout(typingTimeout); typingTimeout=setTimeout(()=>typingIndicator.style.display='none',2500)}
+      }
+    }
+
+    // escape html for simple safety
+    function escapeHtml(s){return (s||'').toString().replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]})}
+
+    // initial seed: if no users, create a sample user so UI not empty (optional)
+    if(getUsers().length===0){
+      const seed = [{id:uid(),name:'Аня'},{id:uid(),name:'Борис'},{id:uid(),name:'Влад'}];
+      saveUsers(seed);
+    }
+
+    // restore state
+    renderUsers(); renderCurrent();
+
+    // if url contains ?user=<id> open chat with that id
+    (function openFromURL(){
+      try{const p=new URLSearchParams(location.search); const u=p.get('user'); if(u){const users=getUsers(); if(users.some(x=>x.id===u)){ openChat(u) }}}
+      catch(e){}
+    })();
+
+  </script>
+</body>
+</html>
